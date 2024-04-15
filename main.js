@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
@@ -15,12 +14,12 @@ light.position.set( 0, 8, 3 );
 light.castShadow = true; // default false
 scene.add( light );
 
-const lightA = new THREE.AmbientLight( 0x404040 ); // soft white light
+const lightA = new THREE.AmbientLight( 0x505050 ); // soft white light
 scene.add( lightA );
 
 //Set up shadow properties for the light
-light.shadow.mapSize.width = 2000; // default
-light.shadow.mapSize.height = 2000; // default
+light.shadow.mapSize.width = 2000;
+light.shadow.mapSize.height = 2000;
 light.shadow.camera.near = 0.5; // default
 light.shadow.camera.far = 500; // default
 
@@ -42,11 +41,45 @@ camera.position.z = 10;
 
 let velocityY = 0
 const gravity = -0.01
-const jumpStrength = 0.20
+const jumpStrength = 0.2
 let playState = false
-
 let movingLeft = false
 let movingRight = false
+
+let obstacles = []
+
+function createObstacle() {
+    const randY = Math.random() * 5
+    const oGeometry = new THREE.BoxGeometry( 1, 1, 1 );
+    const oMaterial = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
+    const obstacle = new THREE.Mesh(oGeometry, oMaterial);
+    scene.add( obstacle )
+    obstacle.position.x = 10
+    obstacle.position.y = randY
+    obstacles.push( obstacle )
+}
+
+async function checkCollision() {
+    const cubeLeft = cube.position.x - 0.5
+    const cubeRight = cube.position.x + 0.5
+
+    const cubeY = cube.position.y - 0.5
+    
+    obstacles.forEach(obstacle => {
+        if((obstacle.position.x > cubeLeft && obstacle.position.x < cubeRight)) {
+            if(cubeY < obstacle.position.y + 0.5) {
+                playState = false
+                obstacles.forEach(o => {
+                    scene.remove(o)
+                })
+                obstacles = []
+            }
+            else if(cubeY > obstacle.position.y + 0.5 && cubeY < obstacle.position.y + 1.5){
+                velocityY = jumpStrength
+            }
+        }
+    })
+}
 
 function animate() {
 	requestAnimationFrame( animate );
@@ -54,21 +87,33 @@ function animate() {
     if(playState) {
         velocityY += gravity
         cube.position.y += velocityY
-        if(cube.position.y < 0) {
-            cube.position.y = 0
-            velocityY = 0
-        }
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
 
-        //moving left or right
+        if(cube.position.y < 0) {
+            velocityY = 0
+            cube.position.y = 0
+        }
         if(movingRight) {
-            cube.position.x += 0.05
+            cube.position.x += 0.1
         }
         if(movingLeft) {
-            cube.position.x -= 0.05
+            cube.position.x -= 0.1
         }
+
+        if(obstacles.length >= 5) {
+            scene.remove(obstacles[0])
+            obstacles.shift()
+        }
+
+        checkCollision()
+
+        obstacles.forEach(obstacle => {
+            obstacle.position.x -= 0.1
+        });
+
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
     }
+    
     renderer.render( scene, camera );
 }
 
@@ -76,7 +121,7 @@ function play(event) {
     if(event.code === "Space" && playState) {
         velocityY = jumpStrength
     }
-    else if(event.code === "KeyP") {
+    if(event.code === "KeyP") {
         playState = !playState
     }
     if(event.code === "KeyA") {
@@ -95,6 +140,8 @@ function stopMoving(event) {
         movingRight = false
     }
 }
+
+setInterval(createObstacle, 2000)
 
 document.addEventListener("keydown", play)
 document.addEventListener("keyup", stopMoving)
