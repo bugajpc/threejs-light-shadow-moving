@@ -5,7 +5,7 @@ const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.inner
 const renderer = new THREE.WebGLRenderer();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
-renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setSize( window.innerWidth, window.innerHeight - 100 );
 document.body.appendChild( renderer.domElement );
 
 //Create a PointLight and turn on shadows for the light
@@ -39,88 +39,49 @@ plane.rotation.x += 1.6
 plane.position.y -= 2
 camera.position.z = 10;
 
-let velocityY = 0
+let score = 0
+const scoreH1 = document.getElementById("score")
+let playState = false
+let movingRight = false
+let movingLeft = false
 const gravity = -0.01
 const jumpStrength = 0.2
-let playState = false
-let movingLeft = false
-let movingRight = false
-
+let velocityY = 0
 let obstacles = []
-
-function createObstacle() {
-    const randY = Math.random() * 5
-    const oGeometry = new THREE.BoxGeometry( 1, 1, 1 );
-    const oMaterial = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
-    const obstacle = new THREE.Mesh(oGeometry, oMaterial);
-    scene.add( obstacle )
-    obstacle.position.x = 10
-    obstacle.position.y = randY
-    obstacles.push( obstacle )
-}
-
-async function checkCollision() {
-    const cubeLeft = cube.position.x - 0.5
-    const cubeRight = cube.position.x + 0.5
-
-    const cubeY = cube.position.y - 0.5
-    
-    obstacles.forEach(obstacle => {
-        if((obstacle.position.x > cubeLeft && obstacle.position.x < cubeRight)) {
-            if(cubeY < obstacle.position.y + 0.5) {
-                playState = false
-                obstacles.forEach(o => {
-                    scene.remove(o)
-                })
-                obstacles = []
-            }
-            else if(cubeY > obstacle.position.y + 0.5 && cubeY < obstacle.position.y + 1.5){
-                velocityY = jumpStrength
-            }
-        }
-    })
-}
 
 function animate() {
 	requestAnimationFrame( animate );
 
     if(playState) {
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+
+        obstacles.forEach( obstacle => {
+            obstacle.position.x -= 0.1
+        } )
+        
+        checkCollision()
+
         velocityY += gravity
         cube.position.y += velocityY
 
         if(cube.position.y < 0) {
-            velocityY = 0
-            cube.position.y = 0
+            velocityY = 0;
+            cube.position.y = 0;
         }
+
         if(movingRight) {
             cube.position.x += 0.1
         }
         if(movingLeft) {
             cube.position.x -= 0.1
         }
-
-        if(obstacles.length >= 5) {
-            scene.remove(obstacles[0])
-            obstacles.shift()
-        }
-
-        checkCollision()
-
-        obstacles.forEach(obstacle => {
-            obstacle.position.x -= 0.1
-        });
-
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
     }
     
     renderer.render( scene, camera );
 }
 
 function play(event) {
-    if(event.code === "Space" && playState) {
-        velocityY = jumpStrength
-    }
     if(event.code === "KeyP") {
         playState = !playState
     }
@@ -130,8 +91,10 @@ function play(event) {
     if(event.code === "KeyD") {
         movingRight = true
     }
+    if(event.code === "Space") {
+        velocityY = jumpStrength
+    }
 }
-
 function stopMoving(event) {
     if(event.code === "KeyA") {
         movingLeft = false
@@ -141,9 +104,50 @@ function stopMoving(event) {
     }
 }
 
-setInterval(createObstacle, 2000)
+function createObstacle() {
+    const randY = Math.random() * 5
+    const geometryO = new THREE.BoxGeometry( 1, 1, 1 );
+    const materialO = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
+    const cubeO = new THREE.Mesh( geometryO, materialO );
+    cubeO.position.x = 10
+    cubeO.position.y = randY
+    cubeO.castShadow = true; //default is false
+    obstacles.push( cubeO )
+    scene.add( cubeO );
+
+    if(obstacles.length >= 4) {
+        scene.remove(obstacles[0])
+        obstacles.shift()
+    }
+}
+
+async function checkCollision() {
+    const cubeLeft = cube.position.x - 0.5
+    const cubeRight = cube.position.x + 0.5
+    const cubeTop = cube.position.y + 0.5
+    const cubeBottom = cube.position.y - 0.5
+
+    obstacles.forEach(obstacle => {
+        if(obstacle.position.x > cubeLeft && obstacle.position.x < cubeRight) {
+            if(obstacle.position.y + 0.6 >= cubeBottom && obstacle.position.y + 0.3 <= cubeBottom) {
+                velocityY = jumpStrength
+                score += 1
+                obstacles = obstacles.filter(o => o != obstacle)
+                scene.remove(obstacle)
+            }
+            if(obstacle.position.y > cubeBottom && obstacle.position.y < cubeTop) {
+                playState = false
+                obstacles = obstacles.filter(o => o != obstacle)
+                scene.remove(obstacle)
+                score = 0
+            }
+            scoreH1.innerHTML = "Score: " + score
+        }
+    })
+}
+
+setInterval(createObstacle, 1500)
 
 document.addEventListener("keydown", play)
 document.addEventListener("keyup", stopMoving)
-
 animate();
